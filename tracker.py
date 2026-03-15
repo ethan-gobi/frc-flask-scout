@@ -51,7 +51,7 @@ class StreamTracker:
     ) -> int:
         clean_source = source_input.strip()
         if match_number <= 0:
-            raise RuntimeError("Match ID is required")
+            raise RuntimeError("Match number is required")
         if not clean_source:
             raise RuntimeError("Stream URL or video path is required")
 
@@ -86,7 +86,7 @@ class StreamTracker:
             if self.stream_running:
                 raise RuntimeError("Tracking is already running")
             if not self.active_match:
-                raise RuntimeError("Match ID is required")
+                raise RuntimeError("Match setup is required before starting tracking")
             if not self.source_input:
                 raise RuntimeError("Stream URL or video path is required")
 
@@ -208,6 +208,8 @@ class StreamTracker:
             "source_input": self.source_input,
             "resolved_source_url": self.resolved_source_url,
             "match_type": self.active_match["match_type"] if self.active_match else None,
+            "configured_match_number": self.active_match["match_number"] if self.active_match else None,
+            "internal_record_id": self.active_match["id"] if self.active_match else None,
         }
 
     def _loop(self) -> None:

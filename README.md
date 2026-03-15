@@ -227,13 +227,17 @@ Tracking does **not** begin automatically.
 You must do this in order:
 
 1. Save setup with both:
-   - Match ID (`match_number`)
+   - Match number (`match_number`) from the event schedule (not the internal DB row id)
    - Match type (`match_type`) such as `qualification`, `alliance`, `playoff`, `final`, or `other`
    - Stream URL or video path (`source_input`)
 2. Click **Start Tracking** (`/start_tracking`).
 
+`/save_match_setup` returns both:
+- `match_number` (what you entered)
+- `internal_record_id` (auto-generated DB id)
+
 If either field is missing, the app returns clean errors:
-- `Match ID is required`
+- `Match number is required`
 - `Stream URL or video path is required`
 
 ### Source types supported

@@ -29,13 +29,14 @@ def dashboard():
 @app.route("/save_match_setup", methods=["POST"])
 def save_match_setup():
     payload = request.get_json(silent=True) or request.form or {}
-    match_number = int(payload.get("match_number", 0) or 0)
+    raw_match_number = payload.get("match_number", payload.get("match_id", 0))
+    match_number = int(raw_match_number or 0)
     source_input = (payload.get("source_input") or payload.get("stream_url") or "").strip()
     source_mode = (payload.get("source_mode") or "auto").strip() or "auto"
     match_type = (payload.get("match_type") or "qualification").strip() or "qualification"
 
     if match_number <= 0:
-        return jsonify({"ok": False, "error": "Match ID is required"}), 400
+        return jsonify({"ok": False, "error": "Match number is required"}), 400
     if not source_input:
         return jsonify({"ok": False, "error": "Stream URL or video path is required"}), 400
 
@@ -49,7 +50,13 @@ def save_match_setup():
     except RuntimeError as exc:
         return jsonify({"ok": False, "error": str(exc)}), 400
 
-    return jsonify({"ok": True, "message": "Match configured", "match_id": match_id})
+    return jsonify({
+        "ok": True,
+        "message": "Match configured",
+        "match_number": match_number,
+        "internal_record_id": match_id,
+        "match_id": match_id,
+    })
 
 
 @app.route("/start_tracking", methods=["POST"])

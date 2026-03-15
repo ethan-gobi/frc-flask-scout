@@ -27,6 +27,8 @@
       <p class="status">{{ state.tracking_status }}</p>
       <p class="status">{{ state.source_status }}</p>
       <p class="status">Active match: {{ active_match if active_match else 'None' }}</p>
+      <p class="status">Configured match number: {{ state.configured_match_number if state.configured_match_number else "None" }}</p>
+      <p class="status">Internal record ID: {{ state.internal_record_id if state.internal_record_id else "None" }}</p>
       <p class="status">Current source input: {{ state.source_input if state.source_input else 'None' }}</p>
       <p class="status">Source mode: {{ state.source_mode }}</p>
       <p class="status">Match type: {{ state.match_type if state.match_type else "None" }}</p>
@@ -34,7 +36,8 @@
 
     <div class="card">
       <h2>Match Setup and Tracking</h2>
-      <label>Match ID: <input type="number" id="match_number" min="1" required></label>
+      <label>Match number (event schedule): <input type="number" id="match_number" min="1" required></label>
+      <p style="margin:0.3rem 0 0.6rem 0; color:#344054;">Use the event's match number (for example 56). The app also creates an internal record ID automatically.</p>
       <label>Match type:
         <select id="match_type">
           <option value="qualification" selected>qualification</option>
@@ -112,7 +115,11 @@
         const data = await resp.json();
         const el = document.getElementById('dashboard_message');
         el.className = `message ${data.ok ? 'ok' : 'err'}`;
-        el.textContent = data.message || data.error || (data.ok ? 'OK' : 'Failed');
+        if (data.ok && data.match_number && data.internal_record_id) {
+          el.textContent = `${data.message}. Match number: ${data.match_number}. Internal record ID: ${data.internal_record_id}.`;
+        } else {
+          el.textContent = data.message || data.error || (data.ok ? 'OK' : 'Failed');
+        }
         setTimeout(() => window.location.reload(), 500);
       }
     </script>
