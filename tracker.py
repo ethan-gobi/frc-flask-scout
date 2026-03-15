@@ -2,6 +2,10 @@ from __future__ import annotations
 
 import threading
 import time
+import subprocess
+import sys
+import logging
+from urllib.parse import urlparse
 from typing import Any, Dict, Optional
 
 from detector import RobotDetector, VideoStream
@@ -12,9 +16,11 @@ from storage import create_match, end_match as close_match, get_match_summary, i
 class StreamTracker:
     def __init__(self) -> None:
         init_storage()
+        self.logger = logging.getLogger(__name__)
         self.detector = RobotDetector()
         self.stream = VideoStream()
 
+        # Runtime-only state must always start clean on app boot.
         self.active_match: Optional[Dict[str, Any]] = None
         self.stream_running = False
         self._stream_thread: Optional[threading.Thread] = None
@@ -43,14 +49,48 @@ class StreamTracker:
             self.active_match = None
             return summary
 
-    def start_stream(self, stream_url: str) -> None:
+    def start_stream(self, stream_url: str) -> str:
         with self._lock:
             if self.stream_running:
                 raise RuntimeError("Stream already running")
-            self.stream.open(stream_url)
+
+            actual_url = self.resolve_stream_url(stream_url)
+            self.logger.info(
+                "Attempting to open stream. original_url=%s resolved_url=%s",
+                stream_url,
+                actual_url,
+            )
+            self.stream.open(actual_url)
+            self.logger.info("OpenCV stream open success. resolved_url=%s", actual_url)
             self.stream_running = True
             self._stream_thread = threading.Thread(target=self._loop, daemon=True)
             self._stream_thread.start()
+            return actual_url
+
+    def resolve_stream_url(self, url: str) -> str:
+        parsed = urlparse(url)
+        host = parsed.netloc.lower()
+        is_youtube = ("youtube.com" in host and "/watch" in parsed.path) or "youtu.be" in host
+
+        self.logger.info("Stream URL received. original_url=%s is_youtube=%s", url, is_youtube)
+        if not is_youtube:
+            return url
+
+        cmd = [sys.executable, "-m", "yt_dlp", "-g", url]
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        if result.returncode != 0:
+            stderr = (result.stderr or "").strip()
+            self.logger.warning("yt-dlp resolution failed. original_url=%s error=%s", url, stderr)
+            raise RuntimeError(f"Failed to resolve YouTube stream URL: {stderr or 'yt-dlp returned non-zero exit'}")
+
+        lines = [line.strip() for line in result.stdout.splitlines() if line.strip()]
+        if not lines:
+            self.logger.warning("yt-dlp returned no playable URLs. original_url=%s", url)
+            raise RuntimeError("Failed to resolve YouTube stream URL: no playable media URL returned")
+
+        resolved = lines[0]
+        self.logger.info("YouTube URL resolution succeeded. original_url=%s resolved_url=%s", url, resolved)
+        return resolved
 
     def stop_stream(self) -> None:
         with self._lock:

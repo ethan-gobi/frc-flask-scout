@@ -1,8 +1,12 @@
+import logging
+
 from flask import Flask, jsonify, render_template, request, send_file
 
 from events import SCOUTING_FIELDS, empty_scouting_payload
 from exports import export_csv, export_xlsx
 from tracker import StreamTracker
+
+logging.basicConfig(level=logging.INFO)
 
 app = Flask(__name__)
 tracker = StreamTracker()
@@ -29,7 +33,11 @@ def start_match():
     if match_number <= 0 or team_number <= 0:
         return jsonify({"ok": False, "error": "match_number and team_number must be positive integers"}), 400
 
-    match_id = tracker.start_match(match_number=match_number, team_number=team_number)
+    try:
+        match_id = tracker.start_match(match_number=match_number, team_number=team_number)
+    except RuntimeError as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 400
+
     return jsonify({"ok": True, "match_id": match_id})
 
 
@@ -50,11 +58,11 @@ def start_stream():
         return jsonify({"ok": False, "error": "stream_url is required"}), 400
 
     try:
-        tracker.start_stream(stream_url)
+        resolved_url = tracker.start_stream(stream_url)
     except RuntimeError as exc:
         return jsonify({"ok": False, "error": str(exc)}), 400
 
-    return jsonify({"ok": True, "message": "Stream started"})
+    return jsonify({"ok": True, "message": "Stream started", "resolved_url": resolved_url})
 
 
 @app.route("/stop_stream", methods=["POST"])

@@ -22,14 +22,15 @@
       <h2>System Status</h2>
       <p class="status">Stream running: {{ stream_running }}</p>
       <p class="status">Active match: {{ active_match if active_match else 'None' }}</p>
+      <p class="status">Match active now: {{ 'Yes' if active_match else 'No' }}</p>
     </div>
 
     <div class="card">
       <h2>Start/End Match</h2>
-      <form action="/start_match" method="post">
+      <form action="/start_match" method="post" onsubmit="this.querySelector('button[type=\"submit\"]').disabled=true;">
         <label>Match #: <input type="number" name="match_number" required min="1"></label>
         <label>Team #: <input type="number" name="team_number" required min="1"></label>
-        <button type="submit">Start Match</button>
+        <button type="submit" {% if active_match %}disabled{% endif %}>Start Match</button>
       </form>
       <form action="/end_match" method="post">
         <button type="submit">End Match</button>
