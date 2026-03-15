@@ -17,8 +17,11 @@ def init_storage() -> None:
             CREATE TABLE IF NOT EXISTS matches (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 match_number INTEGER NOT NULL,
-                team_number INTEGER NOT NULL,
-                started_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                team_number INTEGER NOT NULL DEFAULT 0,
+                match_type TEXT DEFAULT 'qualification',
+                source_input TEXT,
+                source_mode TEXT DEFAULT 'auto',
+                started_at TEXT,
                 ended_at TEXT
             )
             """
@@ -34,6 +37,29 @@ def init_storage() -> None:
             )
             """
         )
+        _ensure_matches_columns(conn)
+
+
+def _ensure_matches_columns(conn: sqlite3.Connection) -> None:
+    rows = conn.execute("PRAGMA table_info(matches)").fetchall()
+    existing = {row[1] for row in rows}
+    if "match_type" not in existing:
+        conn.execute("ALTER TABLE matches ADD COLUMN match_type TEXT DEFAULT 'qualification'")
+    if "source_input" not in existing:
+        conn.execute("ALTER TABLE matches ADD COLUMN source_input TEXT")
+    if "source_mode" not in existing:
+        conn.execute("ALTER TABLE matches ADD COLUMN source_mode TEXT DEFAULT 'auto'")
+    if "started_at" not in existing:
+        conn.execute("ALTER TABLE matches ADD COLUMN started_at TEXT")
+    if "ended_at" not in existing:
+        conn.execute("ALTER TABLE matches ADD COLUMN ended_at TEXT")
+
+
+def _has_started_at_default(conn: sqlite3.Connection) -> bool:
+    row = conn.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='matches'").fetchone()
+    if not row or not row[0]:
+        return False
+    return "started_at TEXT DEFAULT CURRENT_TIMESTAMP" in row[0]
 
 
 @contextmanager
@@ -47,13 +73,35 @@ def get_conn():
         conn.close()
 
 
-def create_match(match_number: int, team_number: int) -> int:
+def create_match(match_number: int, team_number: int = 0, match_type: str = 'qualification') -> int:
     with get_conn() as conn:
-        cur = conn.execute(
-            "INSERT INTO matches (match_number, team_number) VALUES (?, ?)",
-            (match_number, team_number),
-        )
+        if _has_started_at_default(conn):
+            cur = conn.execute(
+                "INSERT INTO matches (match_number, team_number, match_type, started_at) VALUES (?, ?, ?, NULL)",
+                (match_number, team_number, match_type),
+            )
+        else:
+            cur = conn.execute(
+                "INSERT INTO matches (match_number, team_number, match_type) VALUES (?, ?, ?)",
+                (match_number, team_number, match_type),
+            )
         return int(cur.lastrowid)
+
+
+def update_match_source(match_id: int, source_input: str, source_mode: str, match_type: str) -> None:
+    with get_conn() as conn:
+        conn.execute(
+            "UPDATE matches SET source_input = ?, source_mode = ?, match_type = ? WHERE id = ?",
+            (source_input, source_mode, match_type, match_id),
+        )
+
+
+def mark_match_started(match_id: int) -> None:
+    with get_conn() as conn:
+        conn.execute(
+            "UPDATE matches SET started_at = COALESCE(started_at, CURRENT_TIMESTAMP) WHERE id = ?",
+            (match_id,),
+        )
 
 
 def end_match(match_id: int) -> None:
@@ -76,7 +124,18 @@ def get_all_events() -> List[Dict[str, Any]]:
     with get_conn() as conn:
         rows = conn.execute(
             """
-            SELECT e.id, e.match_id, e.timestamp, e.payload_json, m.match_number, m.team_number
+            SELECT
+                e.id,
+                e.match_id,
+                e.timestamp,
+                e.payload_json,
+                m.match_number,
+                m.team_number,
+                m.match_type,
+                m.source_input,
+                m.source_mode,
+                m.started_at,
+                m.ended_at
             FROM scouting_events e
             JOIN matches m ON m.id = e.match_id
             ORDER BY e.id ASC
@@ -93,6 +152,11 @@ def get_all_events() -> List[Dict[str, Any]]:
                 "timestamp": row["timestamp"],
                 "match_number": row["match_number"],
                 "team_number": row["team_number"],
+                "match_type": row["match_type"],
+                "source_input": row["source_input"],
+                "source_mode": row["source_mode"],
+                "started_at": row["started_at"],
+                "ended_at": row["ended_at"],
                 "payload": payload,
             }
         )
@@ -113,6 +177,9 @@ def get_match_summary(match_id: int) -> Optional[Dict[str, Any]]:
         "id": row["id"],
         "match_number": row["match_number"],
         "team_number": row["team_number"],
+        "match_type": row["match_type"],
+        "source_input": row["source_input"],
+        "source_mode": row["source_mode"],
         "started_at": row["started_at"],
         "ended_at": row["ended_at"],
     }
