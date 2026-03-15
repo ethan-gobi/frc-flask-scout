@@ -21,6 +21,10 @@ def _flatten_events(events: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
             "match_number": event["match_number"],
             "team_number": event["team_number"],
             "timestamp": event["timestamp"],
+            "source_input": event.get("source_input"),
+            "source_mode": event.get("source_mode"),
+            "started_at": event.get("started_at"),
+            "ended_at": event.get("ended_at"),
         }
 
         payload = event["payload"]

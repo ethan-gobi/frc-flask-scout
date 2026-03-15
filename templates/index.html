@@ -10,9 +10,12 @@
       table { border-collapse: collapse; width: 100%; }
       th, td { border: 1px solid #d0d7e2; padding: 0.5rem; text-align: left; }
       th { background: #eef2f8; }
-      input { margin-right: 0.5rem; }
+      input, select { margin-right: 0.5rem; }
       button { margin-right: 0.5rem; margin-top: 0.5rem; }
       .status { font-weight: bold; }
+      .message { padding: 0.6rem; border-radius: 6px; margin-top: 0.5rem; }
+      .ok { background: #e9f8ed; color: #14532d; }
+      .err { background: #fdecec; color: #7f1d1d; }
     </style>
   </head>
   <body>
@@ -20,31 +23,33 @@
 
     <div class="card">
       <h2>System Status</h2>
-      <p class="status">Stream running: {{ stream_running }}</p>
+      <p class="status">{{ state.setup_status }}</p>
+      <p class="status">{{ state.tracking_status }}</p>
+      <p class="status">{{ state.source_status }}</p>
       <p class="status">Active match: {{ active_match if active_match else 'None' }}</p>
+      <p class="status">Current source input: {{ state.source_input if state.source_input else 'None' }}</p>
+      <p class="status">Source mode: {{ state.source_mode }}</p>
     </div>
 
     <div class="card">
-      <h2>Start/End Match</h2>
-      <form action="/start_match" method="post">
-        <label>Match #: <input type="number" name="match_number" required min="1"></label>
-        <label>Team #: <input type="number" name="team_number" required min="1"></label>
-        <button type="submit">Start Match</button>
-      </form>
-      <form action="/end_match" method="post">
-        <button type="submit">End Match</button>
-      </form>
-    </div>
-
-    <div class="card">
-      <h2>Stream Controls</h2>
-      <form action="/start_stream" method="post">
-        <label>Stream URL: <input type="text" name="stream_url" size="60" placeholder="http://... or rtsp://..." required></label>
-        <button type="submit">Start Stream</button>
-      </form>
-      <form action="/stop_stream" method="post">
-        <button type="submit">Stop Stream</button>
-      </form>
+      <h2>Match Setup and Tracking</h2>
+      <label>Match ID: <input type="number" id="match_number" min="1" required></label>
+      <label>Stream URL or Video Path: <input type="text" id="source_input" size="60" placeholder="YouTube URL, direct URL, or /path/file.mp4" required></label>
+      <label>Source mode:
+        <select id="source_mode">
+          <option value="auto" selected>auto</option>
+          <option value="live">live</option>
+          <option value="recorded">recorded</option>
+          <option value="local_file">local_file</option>
+        </select>
+      </label>
+      <div>
+        <button type="button" onclick="saveSetup()">Save Match Setup</button>
+        <button type="button" onclick="postAction('/start_tracking')">Start Tracking</button>
+        <button type="button" onclick="postAction('/stop_tracking')">Stop Tracking</button>
+        <button type="button" onclick="postAction('/end_match')">End Match</button>
+      </div>
+      <div id="dashboard_message"></div>
     </div>
 
     <div class="card">
@@ -77,5 +82,28 @@
       <p><a href="/export/xlsx">Download XLSX</a></p>
       <p>Exports are saved in <code>data/exports/</code>.</p>
     </div>
+
+    <script>
+      async function saveSetup() {
+        const match_number = document.getElementById('match_number').value;
+        const source_input = document.getElementById('source_input').value;
+        const source_mode = document.getElementById('source_mode').value;
+        await postAction('/save_match_setup', { match_number, source_input, source_mode });
+      }
+
+      async function postAction(url, body = null) {
+        const opts = { method: 'POST' };
+        if (body) {
+          opts.headers = { 'Content-Type': 'application/json' };
+          opts.body = JSON.stringify(body);
+        }
+        const resp = await fetch(url, opts);
+        const data = await resp.json();
+        const el = document.getElementById('dashboard_message');
+        el.className = `message ${data.ok ? 'ok' : 'err'}`;
+        el.textContent = data.message || data.error || (data.ok ? 'OK' : 'Failed');
+        setTimeout(() => window.location.reload(), 500);
+      }
+    </script>
   </body>
 </html>

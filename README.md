@@ -4,7 +4,8 @@ A local-first Python Flask project for automated FRC livestream scouting using O
 
 ## Features
 
-- Read livestream/video URL with OpenCV (`/start_stream`, `/stop_stream`)
+- Read livestream/video/local file input with OpenCV (`/save_match_setup`, `/start_tracking`, `/stop_tracking`)
+- Accept standard YouTube watch URLs (`youtube.com/watch?...`) and short URLs (`youtu.be/...`) by resolving to direct media streams via `yt-dlp` before OpenCV
 - Detect objects each frame with YOLO (Ultralytics)
 - Estimate required scouting fields with `{ value, confidence }`
 - Store event snapshots in local SQLite (`data/scouting.db`)
@@ -63,6 +64,21 @@ python app.py
 Open: http://127.0.0.1:5000
 
 
+## Run examples by source type
+
+### Live stream
+- Save setup with a live source URL (for example RTSP/HLS), then click **Start Tracking**.
+
+### Old YouTube livestream / recorded YouTube video
+- Paste the normal YouTube URL into **Stream URL or Video Path**.
+- The app resolves it with `yt-dlp` before opening in OpenCV.
+- Tracking begins only when you click **Start Tracking**.
+
+### Local MP4 file
+- Enter a file path like `/home/user/matches/qm12.mp4` (or equivalent path on your machine).
+- Save setup, then click **Start Tracking**.
+
+
 ## Step-by-step: run and interact with every part
 
 ### 1) Start from the project folder
@@ -101,19 +117,19 @@ Go to:
 From the dashboard you can interact with each major part:
 
 1. **System Status**
-   - View whether stream processing is running.
-   - View current active match metadata.
-2. **Start/End Match**
-   - Enter `match_number` and `team_number`.
-   - Click **Start Match** to begin storing events under that match.
-   - Click **End Match** to stop and finalize that match record.
-3. **Stream Controls**
-   - Enter a stream/video URL (examples: `rtsp://...`, `http://...`, `https://...`, local file path supported by OpenCV).
-   - Click **Start Stream** to begin frame capture + inference loop.
-   - Click **Stop Stream** to stop capture and processing.
-4. **Latest Estimated Scouting Fields**
+   - View setup status (`No match configured` / `Match configured`).
+   - View tracking status (`Tracking stopped` / `Tracking running`).
+   - View source status (`Recorded source loaded` / `Live source loaded`).
+2. **Match Setup and Tracking**
+   - Enter `Match ID` and `Stream URL or Video Path`.
+   - Optional: pick `source_mode` (`auto`, `live`, `recorded`, `local_file`).
+   - Click **Save Match Setup** (this does not start tracking).
+   - Click **Start Tracking** to begin processing.
+   - Click **Stop Tracking** to stop processing and keep the match configured.
+   - Click **End Match** to finalize and clear active match setup.
+3. **Latest Estimated Scouting Fields**
    - View all required fields with live `value` and `confidence`.
-5. **Export**
+4. **Export**
    - Click **Download CSV** or **Download XLSX**.
    - Files are generated/saved in `data/exports/`.
 
@@ -128,32 +144,32 @@ curl http://127.0.0.1:5000/
 curl http://127.0.0.1:5000/status
 ```
 
-#### B. Match lifecycle
+#### B. Match + tracking lifecycle
 
-Start match:
+Save setup:
 
 ```bash
-curl -X POST -F "match_number=1" -F "team_number=254" http://127.0.0.1:5000/start_match
+curl -X POST http://127.0.0.1:5000/save_match_setup \
+  -H "Content-Type: application/json" \
+  -d '{"match_number":1,"source_input":"https://www.youtube.com/watch?v=o-d2D77V3f4","source_mode":"auto"}'
+```
+
+Start tracking:
+
+```bash
+curl -X POST http://127.0.0.1:5000/start_tracking
+```
+
+Stop tracking:
+
+```bash
+curl -X POST http://127.0.0.1:5000/stop_tracking
 ```
 
 End match:
 
 ```bash
 curl -X POST http://127.0.0.1:5000/end_match
-```
-
-#### C. Stream lifecycle
-
-Start stream:
-
-```bash
-curl -X POST -F "stream_url=https://example.com/stream.m3u8" http://127.0.0.1:5000/start_stream
-```
-
-Stop stream:
-
-```bash
-curl -X POST http://127.0.0.1:5000/stop_stream
 ```
 
 #### D. Export endpoints
@@ -171,21 +187,111 @@ curl -OJ http://127.0.0.1:5000/export/xlsx
 ### 8) Typical session order (recommended)
 
 1. Start app.
-2. Start a match (`/start_match`).
-3. Start stream (`/start_stream`).
-4. Let it run during the match.
-5. Stop stream (`/stop_stream`).
+2. Save setup (`/save_match_setup`) with match ID + source input.
+3. Start tracking (`/start_tracking`).
+4. Let it run during the match or recorded file.
+5. Stop tracking (`/stop_tracking`) if needed.
 6. End match (`/end_match`).
 7. Export CSV/XLSX (`/export/csv`, `/export/xlsx`).
 
 
+
+#### YouTube URL support details
+
+When `/start_tracking` opens a configured YouTube watch URL (`youtube.com/watch?...`) or short URL (`youtu.be/...`), the app first resolves it to a direct playable media URL by running:
+
+```bash
+python -m yt_dlp -g <youtube_url>
+```
+
+The first non-empty output line is then passed to OpenCV `VideoCapture`. Non-YouTube URLs are sent to OpenCV unchanged.
+
+#### Stream troubleshooting
+
+If stream start fails:
+
+1. Confirm `yt-dlp` is installed in the same environment as Flask:
+   ```bash
+   python -m pip show yt-dlp
+   ```
+2. Test URL resolution manually:
+   ```bash
+   python -m yt_dlp -g "https://www.youtube.com/watch?v=o-d2D77V3f4"
+   ```
+3. If URL resolution succeeds but OpenCV still cannot open it, your local OpenCV/FFmpeg build may not support the returned stream format; try another quality/source URL or update your OpenCV runtime.
+
+## Gated tracking workflow (required)
+
+Tracking does **not** begin automatically.
+
+You must do this in order:
+
+1. Save setup with both:
+   - Match ID (`match_number`)
+   - Stream URL or video path (`source_input`)
+2. Click **Start Tracking** (`/start_tracking`).
+
+If either field is missing, the app returns clean errors:
+- `Match ID is required`
+- `Stream URL or video path is required`
+
+### Source types supported
+
+- Live stream URLs (e.g., RTSP/RTMP/HLS)
+- YouTube live URLs
+- YouTube past livestream recordings / normal video URLs
+- Local video files (e.g., `/path/to/video.mp4`)
+
+### Source mode
+
+Optional `source_mode` values:
+- `auto` (default)
+- `live`
+- `recorded`
+- `local_file`
+
+### Recorded-video behavior
+
+For `recorded` and `local_file` sources, processing runs frame-by-frame without enforced real-time sleep, so it can run faster than live pacing depending on hardware and decode speed.
+
+### API examples for the gated workflow
+
+Save match setup (required before tracking):
+
+```bash
+curl -X POST http://127.0.0.1:5000/save_match_setup \
+  -H "Content-Type: application/json" \
+  -d '{"match_number": 1, "source_input": "https://www.youtube.com/watch?v=o-d2D77V3f4", "source_mode": "auto"}'
+```
+
+Start tracking explicitly:
+
+```bash
+curl -X POST http://127.0.0.1:5000/start_tracking
+```
+
+Stop tracking (keeps match configured):
+
+```bash
+curl -X POST http://127.0.0.1:5000/stop_tracking
+```
+
+End match (finalizes and clears active setup):
+
+```bash
+curl -X POST http://127.0.0.1:5000/end_match
+```
+
 ## API endpoints
 
 - `GET /` dashboard
-- `POST /start_match` body/form: `match_number`, `team_number`
+- `POST /save_match_setup` body/json: `match_number`, `source_input`, optional `source_mode`
+- `POST /start_tracking`
+- `POST /stop_tracking`
 - `POST /end_match`
-- `POST /start_stream` body/form: `stream_url`
-- `POST /stop_stream`
+- `POST /start_match` (alias to `/save_match_setup`)
+- `POST /start_stream` (returns guidance to use `/start_tracking`)
+- `POST /stop_stream` (alias to `/stop_tracking`)
 - `GET /export/csv`
 - `GET /export/xlsx`
 - `GET /status`
@@ -193,8 +299,9 @@ curl -OJ http://127.0.0.1:5000/export/xlsx
 ## Example curl calls
 
 ```bash
-curl -X POST -F "match_number=1" -F "team_number=254" http://127.0.0.1:5000/start_match
-curl -X POST -F "stream_url=https://example.com/stream.m3u8" http://127.0.0.1:5000/start_stream
+curl -X POST http://127.0.0.1:5000/save_match_setup -H "Content-Type: application/json" -d '{"match_number":1,"source_input":"/tmp/match.mp4","source_mode":"local_file"}'
+curl -X POST http://127.0.0.1:5000/start_tracking
+curl -X POST http://127.0.0.1:5000/stop_tracking
 curl -X POST http://127.0.0.1:5000/end_match
 curl -O http://127.0.0.1:5000/export/csv
 ```
