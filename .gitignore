@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+.venv/
+.env
+
+# Runtime data
+/data/scouting.db
+/data/exports/*
+!/data/exports/.gitkeep
+
+# Model weights
+yolov8n.pt

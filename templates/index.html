@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>FRC Livestream Scouting Dashboard</title>
+    <style>
+      body { font-family: Arial, sans-serif; margin: 2rem; background: #f5f7fb; }
+      .card { background: white; border-radius: 8px; padding: 1rem 1.2rem; margin-bottom: 1rem; box-shadow: 0 1px 4px rgba(0,0,0,0.1); }
+      table { border-collapse: collapse; width: 100%; }
+      th, td { border: 1px solid #d0d7e2; padding: 0.5rem; text-align: left; }
+      th { background: #eef2f8; }
+      input { margin-right: 0.5rem; }
+      button { margin-right: 0.5rem; margin-top: 0.5rem; }
+      .status { font-weight: bold; }
+    </style>
+  </head>
+  <body>
+    <h1>FRC Livestream Scouting</h1>
+
+    <div class="card">
+      <h2>System Status</h2>
+      <p class="status">Stream running: {{ stream_running }}</p>
+      <p class="status">Active match: {{ active_match if active_match else 'None' }}</p>
+    </div>
+
+    <div class="card">
+      <h2>Start/End Match</h2>
+      <form action="/start_match" method="post">
+        <label>Match #: <input type="number" name="match_number" required min="1"></label>
+        <label>Team #: <input type="number" name="team_number" required min="1"></label>
+        <button type="submit">Start Match</button>
+      </form>
+      <form action="/end_match" method="post">
+        <button type="submit">End Match</button>
+      </form>
+    </div>
+
+    <div class="card">
+      <h2>Stream Controls</h2>
+      <form action="/start_stream" method="post">
+        <label>Stream URL: <input type="text" name="stream_url" size="60" placeholder="http://... or rtsp://..." required></label>
+        <button type="submit">Start Stream</button>
+      </form>
+      <form action="/stop_stream" method="post">
+        <button type="submit">Stop Stream</button>
+      </form>
+    </div>
+
+    <div class="card">
+      <h2>Latest Estimated Scouting Fields</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Field</th>
+            <th>Value</th>
+            <th>Confidence</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% set data = latest or {} %}
+          {% for field in fields %}
+          {% set f = data.get(field, {'value': 'n/a', 'confidence': 0.0}) %}
+          <tr>
+            <td>{{ field }}</td>
+            <td>{{ f.value }}</td>
+            <td>{{ '%.2f'|format(f.confidence|float) }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <h2>Export</h2>
+      <p><a href="/export/csv">Download CSV</a></p>
+      <p><a href="/export/xlsx">Download XLSX</a></p>
+      <p>Exports are saved in <code>data/exports/</code>.</p>
+    </div>
+  </body>
+</html>
