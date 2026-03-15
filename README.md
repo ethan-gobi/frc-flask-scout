@@ -5,6 +5,7 @@ A local-first Python Flask project for automated FRC livestream scouting using O
 ## Features
 
 - Read livestream/video URL with OpenCV (`/start_stream`, `/stop_stream`)
+- Accept standard YouTube watch URLs (`youtube.com/watch?...`) and short URLs (`youtu.be/...`) by resolving to direct media streams via `yt-dlp` before OpenCV
 - Detect objects each frame with YOLO (Ultralytics)
 - Estimate required scouting fields with `{ value, confidence }`
 - Store event snapshots in local SQLite (`data/scouting.db`)
@@ -108,7 +109,7 @@ From the dashboard you can interact with each major part:
    - Click **Start Match** to begin storing events under that match.
    - Click **End Match** to stop and finalize that match record.
 3. **Stream Controls**
-   - Enter a stream/video URL (examples: `rtsp://...`, `http://...`, `https://...`, local file path supported by OpenCV).
+   - Enter a stream/video URL (examples: `rtsp://...`, direct `http://...`/`https://...`, local file path supported by OpenCV, or normal YouTube watch links).
    - Click **Start Stream** to begin frame capture + inference loop.
    - Click **Stop Stream** to stop capture and processing.
 4. **Latest Estimated Scouting Fields**
@@ -178,6 +179,31 @@ curl -OJ http://127.0.0.1:5000/export/xlsx
 6. End match (`/end_match`).
 7. Export CSV/XLSX (`/export/csv`, `/export/xlsx`).
 
+
+
+#### YouTube URL support details
+
+When `/start_stream` receives a YouTube watch URL (`youtube.com/watch?...`) or short URL (`youtu.be/...`), the app first resolves it to a direct playable media URL by running:
+
+```bash
+python -m yt_dlp -g <youtube_url>
+```
+
+The first non-empty output line is then passed to OpenCV `VideoCapture`. Non-YouTube URLs are sent to OpenCV unchanged.
+
+#### Stream troubleshooting
+
+If stream start fails:
+
+1. Confirm `yt-dlp` is installed in the same environment as Flask:
+   ```bash
+   python -m pip show yt-dlp
+   ```
+2. Test URL resolution manually:
+   ```bash
+   python -m yt_dlp -g "https://www.youtube.com/watch?v=o-d2D77V3f4"
+   ```
+3. If URL resolution succeeds but OpenCV still cannot open it, your local OpenCV/FFmpeg build may not support the returned stream format; try another quality/source URL or update your OpenCV runtime.
 
 ## API endpoints
 
