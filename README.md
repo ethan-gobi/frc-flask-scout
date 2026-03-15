@@ -151,7 +151,7 @@ Save setup:
 ```bash
 curl -X POST http://127.0.0.1:5000/save_match_setup \
   -H "Content-Type: application/json" \
-  -d '{"match_number":1,"source_input":"https://www.youtube.com/watch?v=o-d2D77V3f4","source_mode":"auto"}'
+  -d '{"match_number":1,"match_type":"alliance","source_input":"https://www.youtube.com/watch?v=o-d2D77V3f4","source_mode":"auto"}'
 ```
 
 Start tracking:
@@ -228,6 +228,7 @@ You must do this in order:
 
 1. Save setup with both:
    - Match ID (`match_number`)
+   - Match type (`match_type`) such as `qualification`, `alliance`, `playoff`, `final`, or `other`
    - Stream URL or video path (`source_input`)
 2. Click **Start Tracking** (`/start_tracking`).
 
@@ -285,7 +286,7 @@ curl -X POST http://127.0.0.1:5000/end_match
 ## API endpoints
 
 - `GET /` dashboard
-- `POST /save_match_setup` body/json: `match_number`, `source_input`, optional `source_mode`
+- `POST /save_match_setup` body/json: `match_number`, optional `match_type`, `source_input`, optional `source_mode`
 - `POST /start_tracking`
 - `POST /stop_tracking`
 - `POST /end_match`
@@ -299,7 +300,7 @@ curl -X POST http://127.0.0.1:5000/end_match
 ## Example curl calls
 
 ```bash
-curl -X POST http://127.0.0.1:5000/save_match_setup -H "Content-Type: application/json" -d '{"match_number":1,"source_input":"/tmp/match.mp4","source_mode":"local_file"}'
+curl -X POST http://127.0.0.1:5000/save_match_setup -H "Content-Type: application/json" -d '{"match_number":1,"match_type":"playoff","source_input":"/tmp/match.mp4","source_mode":"local_file"}'
 curl -X POST http://127.0.0.1:5000/start_tracking
 curl -X POST http://127.0.0.1:5000/stop_tracking
 curl -X POST http://127.0.0.1:5000/end_match

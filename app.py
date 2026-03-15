@@ -32,6 +32,7 @@ def save_match_setup():
     match_number = int(payload.get("match_number", 0) or 0)
     source_input = (payload.get("source_input") or payload.get("stream_url") or "").strip()
     source_mode = (payload.get("source_mode") or "auto").strip() or "auto"
+    match_type = (payload.get("match_type") or "qualification").strip() or "qualification"
 
     if match_number <= 0:
         return jsonify({"ok": False, "error": "Match ID is required"}), 400
@@ -39,7 +40,12 @@ def save_match_setup():
         return jsonify({"ok": False, "error": "Stream URL or video path is required"}), 400
 
     try:
-        match_id = tracker.configure_match(match_number=match_number, source_input=source_input, source_mode=source_mode)
+        match_id = tracker.configure_match(
+            match_number=match_number,
+            source_input=source_input,
+            source_mode=source_mode,
+            match_type=match_type,
+        )
     except RuntimeError as exc:
         return jsonify({"ok": False, "error": str(exc)}), 400
 

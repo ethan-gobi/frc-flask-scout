@@ -29,11 +29,21 @@
       <p class="status">Active match: {{ active_match if active_match else 'None' }}</p>
       <p class="status">Current source input: {{ state.source_input if state.source_input else 'None' }}</p>
       <p class="status">Source mode: {{ state.source_mode }}</p>
+      <p class="status">Match type: {{ state.match_type if state.match_type else "None" }}</p>
     </div>
 
     <div class="card">
       <h2>Match Setup and Tracking</h2>
       <label>Match ID: <input type="number" id="match_number" min="1" required></label>
+      <label>Match type:
+        <select id="match_type">
+          <option value="qualification" selected>qualification</option>
+          <option value="alliance">alliance</option>
+          <option value="playoff">playoff</option>
+          <option value="final">final</option>
+          <option value="other">other</option>
+        </select>
+      </label>
       <label>Stream URL or Video Path: <input type="text" id="source_input" size="60" placeholder="YouTube URL, direct URL, or /path/file.mp4" required></label>
       <label>Source mode:
         <select id="source_mode">
@@ -88,7 +98,8 @@
         const match_number = document.getElementById('match_number').value;
         const source_input = document.getElementById('source_input').value;
         const source_mode = document.getElementById('source_mode').value;
-        await postAction('/save_match_setup', { match_number, source_input, source_mode });
+        const match_type = document.getElementById('match_type').value;
+        await postAction('/save_match_setup', { match_number, match_type, source_input, source_mode });
       }
 
       async function postAction(url, body = null) {

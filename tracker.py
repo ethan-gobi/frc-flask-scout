@@ -41,7 +41,14 @@ class StreamTracker:
         self.source_type: Optional[str] = None
         self._processing_delay_s = 0.2
 
-    def configure_match(self, match_number: int, source_input: str, source_mode: str = "auto", team_number: int = 0) -> int:
+    def configure_match(
+        self,
+        match_number: int,
+        source_input: str,
+        source_mode: str = "auto",
+        team_number: int = 0,
+        match_type: str = "qualification",
+    ) -> int:
         clean_source = source_input.strip()
         if match_number <= 0:
             raise RuntimeError("Match ID is required")
@@ -54,17 +61,24 @@ class StreamTracker:
             if self.active_match:
                 raise RuntimeError("A match is already configured")
 
-            match_id = create_match(match_number=match_number, team_number=team_number)
+            normalized_match_type = (match_type or "qualification").strip().lower()
+            match_id = create_match(match_number=match_number, team_number=team_number, match_type=normalized_match_type)
             self.active_match = {
                 "id": match_id,
                 "match_number": match_number,
                 "team_number": team_number,
+                "match_type": normalized_match_type,
             }
             self.source_input = clean_source
             self.source_mode = source_mode or "auto"
             self.resolved_source_url = None
             self.source_type = None
-            update_match_source(match_id=match_id, source_input=clean_source, source_mode=self.source_mode)
+            update_match_source(
+                match_id=match_id,
+                source_input=clean_source,
+                source_mode=self.source_mode,
+                match_type=normalized_match_type,
+            )
             return match_id
 
     def start_tracking(self) -> str:
@@ -193,6 +207,7 @@ class StreamTracker:
             "source_mode": self.source_mode,
             "source_input": self.source_input,
             "resolved_source_url": self.resolved_source_url,
+            "match_type": self.active_match["match_type"] if self.active_match else None,
         }
 
     def _loop(self) -> None:
