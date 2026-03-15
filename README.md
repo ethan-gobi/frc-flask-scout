@@ -337,7 +337,7 @@ Without domain-specific training data, realistic expectations are:
 
 - **Robot presence / rough activity signals**: low-to-moderate reliability in clean broadcast views.
 - **Role-style labels** (`cycling`, `feeding`, `defending`, etc.): moderate at best, highly scenario-dependent.
-- **Fine-grained tactical states** (`beached_on_*`, `scores_while_moving`, `robot_broke`): often noisy without tailored vision logic and temporal rules.
+- **Fine-grained tactical states** (`beached_on_*`, `scores_while_moving`, ~`robot_broke`): often noisy without tailored vision logic and temporal rules.
 - **Point estimation** (`estimated_points_scored`): coarse heuristic only; should not be treated as official or high-confidence scoring.
 
 As a rough baseline, expect **high variance** and frequently a broad band like **~40–70% agreement** with human scouts depending on stream quality and match dynamics. You should treat this as an assistant signal and keep human review in the loop.
